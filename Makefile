@@ -1,6 +1,6 @@
 # Compiler settings
 CC = clang
-CFLAGS = -Wall -Wextra -O2 -I$(PWD)/gsdk/include
+CFLAGS = -Wall -Wextra -O2 -g -I$(PWD)/gsdk/include
 
 # Get absolute path for GSDK
 GSDK_PATH := $(PWD)/gsdk
@@ -10,12 +10,12 @@ GSDK_LIB_PATH := $(GSDK_PATH)/build/lib
 RPATH_FLAGS = -Wl,-rpath,$(GSDK_LIB_PATH)
 
 # All GSDK libraries
-GSDK_LIBS = log sync hash_cache socket \
+GSDK_LIBS = log sync hash socket \
             array circular_buffer dict tree tuple priority_queue queue stack \
             json base64 parallel
 
 # Use full path to each .dylib file
-LIBS = $(addprefix $(GSDK_LIB_PATH)/, $(addsuffix .dylib, $(GSDK_LIBS)))
+LIBS = $(addprefix $(GSDK_LIB_PATH)/, $(addsuffix .so, $(GSDK_LIBS)))
 
 # LDFLAGS: add pthread and all .dylib files
 LDFLAGS = $(LIBS) -lpthread

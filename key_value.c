@@ -6,25 +6,11 @@
  * @author Jacob Smith
  */
 
-// Header
+// header
 #include "key_value.h"
 
-// Structure declarations
-struct key_value_db_s
-{
-    binary_tree *p_binary_tree;
-    char         _database_file[FILENAME_MAX];
-};
-
-struct key_value_db_property_s
-{
-    char        _key[KEY_VALUE_DB_PROPERTY_KEY_LENGTH_MAX];
-    char        _value[KEY_VALUE_DB_PROPERTY_VALUE_LENGTH_MAX];
-    json_value *p_value;
-};
-
-// Function declarations
-// Allocators
+// function declarations
+// allocators
 /** !
  * Allocate a key value database
  * 
@@ -81,7 +67,7 @@ int key_value_db_create ( key_value_db **pp_key_value_db )
     }
 }
 
-// Parsers
+// parsers
 /** !
  * Parse a key value database node
  * 
@@ -92,29 +78,29 @@ int key_value_db_create ( key_value_db **pp_key_value_db )
  */
 int key_value_db_property_parse ( FILE *p_file, binary_tree_node *p_binary_tree_node );
 
-// Key accessor
+// key accessor
 const void *key_value_db_property_key_accessor (  const void *p_value );
 
-int key_value_db_construct ( key_value_db **pp_key_value_db, const char *p_database_file )
+int key_value_db_construct ( key_value_db **pp_key_value_db, const char *p_database_file, unsigned short port )
 {
 
-    // Argument errors
+    // argument errors
     if ( pp_key_value_db == (void *) 0 ) goto no_key_value_db;
 
-    // Initialized data
+    // initialized data
     key_value_db *p_key_value_db = (void *) 0;
     FILE *p_file = (void *) 0;
 
-    // Allocate a key value database
+    // allocate a key value database
     if ( key_value_db_create(&p_key_value_db) == 0 ) goto failed_to_allocate_key_value_db;
     
-    // Store the database file path
+    // store the database file path
     strncpy(p_key_value_db->_database_file, p_database_file, sizeof(p_key_value_db->_database_file) - 1);
 
-    // Open the file 
+    // open the file 
     p_file = fopen(p_key_value_db->_database_file, "r");
 
-    // If the file exists ...
+    // if the file exists ...
     if ( p_file )
     {
 
@@ -144,16 +130,22 @@ int key_value_db_construct ( key_value_db **pp_key_value_db, const char *p_datab
         );
     }
 
+    // construct a socket
+    if ( 0 == socket_tcp_create(&p_key_value_db->_socket, socket_address_family_ipv4, port) ) goto failed_to_construct_socket;
+
+    // construct a thread pool
+    if ( 0 == thread_pool_construct(&p_key_value_db->p_thread_pool, 4) ) goto failed_to_construct_socket;
+
     // Return a pointer to the caller
     *pp_key_value_db = p_key_value_db;
 
     // Success
     return 1;
 
-    // Error handling
+    // error handling
     {
 
-        // Argument errors
+        // argument errors
         {
             no_key_value_db:
                 #ifndef NDEBUG
@@ -164,7 +156,19 @@ int key_value_db_construct ( key_value_db **pp_key_value_db, const char *p_datab
                 return 0;
         }
 
-        // Data errors
+        // core errors
+        {
+            failed_to_construct_socket:
+                #ifndef NDEBUG
+                    log_error("[data] [key value] Failed to allocate memory for key value database in call to function \"%s\"\n", __FUNCTION__);
+                #endif
+
+                // Error
+                return 0;
+
+        }
+
+        // data errors
         {
             failed_to_allocate_key_value_db:
                 #ifndef NDEBUG
@@ -173,10 +177,7 @@ int key_value_db_construct ( key_value_db **pp_key_value_db, const char *p_datab
 
                 // Error
                 return 0;
-        }
 
-        // Dictionary errors
-        {
             failed_to_allocate_dictionary:
                 #ifndef NDEBUG
                     log_error("[data] [key value] Failed to allocate memory for dictionary in call to function \"%s\"\n", __FUNCTION__);
@@ -252,6 +253,13 @@ int key_value_db_put ( key_value_db *p_key_value_db, char *p_output, char *p_key
     // Store the result
     memcpy(p_output, p_property->_value, sizeof(p_property->_value));
 
+    // compute the length of the json text
+    l = strlen(p_output);
+
+    // store a line feed and a null terminator
+    p_output[l + 0] = '\n',
+    p_output[l + 1] = '\0';
+
     // Success
     return 1;
 
@@ -279,12 +287,20 @@ int key_value_db_get ( key_value_db *p_key_value_db, char *p_output, char *p_key
 
     // Initialized data
     key_value_db_property *p_property = (void *) 0;
+    size_t len = 0;
 
     // Search the binary tree
-    binary_tree_search(p_key_value_db->p_binary_tree, p_key, (void **)&p_property);
+    if ( 0 == binary_tree_search(p_key_value_db->p_binary_tree, p_key, (void **)&p_property) ) return 0;
 
     // Print the value to the file
     json_value_serialize(p_property->p_value, p_output);
+
+    // compute the length of the json text
+    len = strlen(p_output);
+
+    // store a line feed and a null terminator
+    p_output[len + 0] = '\n',
+    p_output[len + 1] = '\0';
 
     // Success
     return 1;
@@ -474,13 +490,13 @@ int key_value_db_parse_statement ( key_value_db *p_key_value_db, char *p_input, 
     list_instruction:
     {
 
-        // List the contents of the database
+        // list the contents of the database
         binary_tree_traverse_inorder(
             p_key_value_db->p_binary_tree, 
             key_value_db_property_print
         );
 
-        // Success
+        // success
         return 1;
     }
 

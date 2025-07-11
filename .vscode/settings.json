@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "key_value.h": "c",
+        "log.h": "c",
+        "stdbool.h": "c"
+    }
+}
