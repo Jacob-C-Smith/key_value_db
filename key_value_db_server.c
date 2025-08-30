@@ -32,9 +32,6 @@ int main ( int argc, const char *argv[] )
     // construct an db server
     key_value_db_construct(&p_key_value_db);
 
-    // print the db server
-    key_value_db_print(p_key_value_db);
-
     // keep network up
     getchar();
 

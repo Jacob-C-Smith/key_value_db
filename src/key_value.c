@@ -67,7 +67,7 @@ int key_value_property_equality ( key_value_property *p_a, key_value_property *p
     return ( 0 == key_value_property_comparator(p_a, p_b) );
 }
 
-int key_value_db_server_accept( socket_tcp _socket_tcp, socket_ip_address ip_address, socket_port port_number, key_value_db *p_key_value_db )
+int key_value_db_server_accept ( socket_tcp _socket_tcp, socket_ip_address ip_address, socket_port port_number, key_value_db *p_key_value_db )
 {
 
     // initialized data
@@ -425,6 +425,132 @@ int key_value_db_process_get
     }
 }
 
+int key_value_db_process_set
+(
+    key_value_db *p_key_value_db,
+    char         *p_key,
+    json_value   *p_value,
+
+    char *p_response, size_t *p_response_len
+)
+{
+
+    // argument check
+    if ( NULL == p_key_value_db ) goto no_key_value_db;
+    if ( NULL ==          p_key ) goto no_key;
+    if ( NULL ==        p_value ) goto no_value;
+    if ( NULL ==     p_response ) goto no_response;
+    if ( NULL == p_response_len ) goto no_response_len;
+
+    // initialized data
+    key_value_property *p_property = NULL;
+
+    if ( binary_tree_search(p_key_value_db->p_binary_tree, p_key, (void **)&p_property) ) 
+        binary_tree_remove(p_key_value_db->p_binary_tree, p_property, NULL);
+
+    p_property = default_allocator(0, sizeof(key_value_property));
+    if (NULL == p_property) goto no_mem;
+    
+    // copy the key
+    strncpy(p_property->_name, p_key, sizeof(p_property->_name) - 1);
+    p_property->_name[sizeof(p_property->_name) - 1] = '\0';
+
+    // serialize the value
+    json_value_serialize(p_value, p_property->_value);
+
+    // parse the value
+    json_value_parse(p_property->_value, NULL, &p_property->p_value);
+
+    // insert the value 
+    binary_tree_insert(p_key_value_db->p_binary_tree, p_property);
+
+    // remove the property from the cache
+    cache_remove(p_key_value_db->p_cache, p_property->_name, NULL);
+
+    // serialize the response
+    memcpy(p_response, "{\"okay\":\"true\",\"value\":", 23);
+    *p_response_len = 23 + json_value_serialize(p_property->p_value, p_response + 23);
+    memcpy(p_response + *p_response_len, "}", 1);
+    (*p_response_len)++;
+
+    // success
+    return 1;
+
+    // error handling
+    {
+
+        // argument errors
+        {
+            no_key_value_db:
+                #ifndef NDEBUG
+                    log_error("[key value db] Null pointer provided for parameter \"p_key_value_db\" in call to function \"%s\"", __FUNCTION__);
+                #endif
+
+                // error
+                return 0;
+
+            no_key:
+                #ifndef NDEBUG
+                    log_error("[key value db] Null pointer provided for parameter \"p_key\" in call to function \"%s\"", __FUNCTION__);
+                #endif
+
+                // error
+                return 0;
+
+            no_value:
+               #ifndef NDEBUG
+                    log_error("[key value db] Null pointer provided for parameter \"p_value\" in call to function \"%s\"", __FUNCTION__);
+                #endif
+
+                // error
+                return 0;
+
+            no_response:
+               #ifndef NDEBUG
+                    log_error("[key value db] Null pointer provided for parameter \"p_response\" in call to function \"%s\"", __FUNCTION__);
+                #endif
+
+                // error
+                return 0;
+
+            no_response_len:
+               #ifndef NDEBUG
+                    log_error("[key value db] Null pointer provided for parameter \"p_response_len\" in call to function \"%s\"", __FUNCTION__);
+                #endif
+
+                // error
+                return 0;
+        }
+
+        // key value db errors
+        {
+            not_a_key:
+                #ifndef NDEBUG
+                    log_error("[key value db] Key \"%s\" not found in call to function \"%s\"\n", p_key, __FUNCTION__);
+                #endif
+
+                // copy the error message to the response buffer
+                memcpy(p_response, "{\"okay\":\"false\"}", 16);
+                *p_response_len = 16;
+
+                // error
+                return 0;
+        }
+
+        // standard library errors
+        {
+            no_mem:
+                #ifndef NDEBUG
+                    log_error("[standard library] Failed to allocate memory in call to function \"%s\"", __FUNCTION__);
+                #endif
+
+                // error
+                return 0;
+        }
+    }
+}
+
+
 int key_value_db_process
 ( 
     key_value_db *p_key_value_db, 
@@ -543,6 +669,101 @@ int key_value_db_process
         key_value_db_process_get(p_key_value_db, op1, p_response, p_response_len);
     }
     
+    // process set
+    else if ( 0 == strcmp(command, "set") )
+    {
+
+        // initialized data
+        json_value *p_value = NULL;
+
+        // error check
+        if ( p_request[cur] == '\0' ) goto failed_to_parse_set_key;
+
+        // parse the key
+        {
+
+            // skip leading blanks
+            while 
+            ( 
+                isblank(p_request[cur]) && 
+                cur < request_len
+            ) cur++;
+
+            // bounds check
+            if ( cur >= request_len ) goto bad_request;
+
+            // store operand start offset
+            op1_start = cur;
+
+            // skip the operand itself 
+            while 
+            ( 
+                !isblank(p_request[cur]) && 
+                p_request[cur] != '\0' &&
+                cur < request_len
+            ) cur++;
+
+            // bounds check
+            if ( cur > request_len ) goto bad_request;
+
+            // store the operand end offset
+            op1_end = cur;
+
+            // store the operand
+            op1 = &p_request[op1_start];
+            p_request[op1_end] = '\0';
+            cur++;
+            
+            // print the operand
+            // log_info("[key value db] Operand 1: \"%s\"\n", op1);
+        }
+
+        // parse the value
+        {
+
+            // skip leading blanks
+            while
+            (
+                isblank(p_request[cur]) &&
+                cur < request_len
+            ) cur++;
+
+            // bounds check
+            if (cur >= request_len) goto failed_to_parse_set_value;
+
+            // store operand start offset
+            op2_start = cur;
+
+            // skip the operand itself
+            while
+            (
+                !isblank(p_request[cur]) &&
+                p_request[cur] != '\0' &&
+                cur < request_len
+            ) cur++;
+
+            // bounds check
+            if (cur > request_len) goto failed_to_parse_set_value;
+
+            // store the operand end offset
+            op2_end = cur;
+
+            // store the operand
+            op2 = &p_request[op2_start];
+            p_request[op2_end] = '\0';
+            cur++;
+
+            json_value_parse(op2, NULL, &p_value);
+        }
+
+        // error check
+        if ( NULL == op1 ) goto failed_to_parse_set_key;
+
+        // process the get command
+        key_value_db_process_set(p_key_value_db, op1, p_value, p_response, p_response_len);
+    }
+    
+
     // success
     return 1;
 
@@ -589,6 +810,22 @@ int key_value_db_process
             failed_to_parse_get_key:
                 #ifndef NDEBUG
                     log_error("[key value db] Failed to parse get request key in call to function \"%s\"\n", __FUNCTION__);
+                #endif
+
+                // error
+                return 0;
+
+            failed_to_parse_set_key:
+                #ifndef NDEBUG
+                    log_error("[key value db] Failed to parse set request key in call to function \"%s\"\n", __FUNCTION__);
+                #endif
+
+                // error
+                return 0;
+
+            failed_to_parse_set_value:
+                #ifndef NDEBUG
+                    log_error("[key value db] Failed to parse set request value in call to function \"%s\"\n", __FUNCTION__);
                 #endif
 
                 // error

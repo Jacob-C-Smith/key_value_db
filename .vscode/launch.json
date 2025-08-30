@@ -8,7 +8,7 @@
             "name": "key value database",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/key_value_db",
+            "program": "${workspaceFolder}/build/key_value_db_server",
             "args": [
                 "-f", "fit.db",
                 "-p", "6713"
@@ -17,16 +17,16 @@
             "cwd": "${fileDirname}",
             "environment": [],
             "externalConsole": false,
-            "MIMode": "gdb",
+            "MIMode": "lldb",
             "setupCommands": [
                 {
-                    "description": "Enable pretty-printing for gdb",
+                    "description": "Enable pretty-printing for lldb",
                     "text": "-enable-pretty-printing",
                     "ignoreFailures": true
                 },
                 {
                     "description": "Set Disassembly Flavor to Intel",
-                    "text": "-gdb-set disassembly-flavor intel",
+                    "text": "-lldb-set disassembly-flavor intel",
                     "ignoreFailures": true
                 }
             ]

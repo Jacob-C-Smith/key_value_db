@@ -16,14 +16,13 @@ func ok(e error) {
 	}
 }
 
-func serialize_request(command string) []byte {
-	req_len := int64(len(command))
-	req_len_buf := make([]byte, 8)
-	for i := 0; i < 8; i++ {
-		req_len_buf[i] = byte(req_len & 0xFF)
-		req_len >>= 8
-	}
-	return append(req_len_buf, []byte(command)...)
+func NewKeyValueDb(host string) (db *KeyValueDb, err error) {
+	conn, err := net.Dial("tcp", host)
+
+	return &KeyValueDb{
+		host: host,
+		conn: conn,
+	}, err
 }
 
 func (db *KeyValueDb) ParseResponse() (resp_buf []byte, err error) {
@@ -67,20 +66,19 @@ func (db *KeyValueDb) ParseResponse() (resp_buf []byte, err error) {
 	return resp_buf, err
 }
 
-func NewKeyValueDb(host string) (db *KeyValueDb, err error) {
-	conn, err := net.Dial("tcp", host)
-
-	return &KeyValueDb{
-		host: host,
-		conn: conn,
-	}, err
-}
-
 func (db *KeyValueDb) Get(key string) (response []byte, err error) {
 
 	// error check
 	if db.conn == nil {
-		return nil, fmt.Errorf("no active connection")
+		const maxRetries = 3
+		for i := 0; i < maxRetries; i++ {
+			if err := db.Reconnect(); err == nil {
+				break
+			}
+			if i == maxRetries-1 {
+				return nil, fmt.Errorf("no active connection")
+			}
+		}
 	}
 
 	// construct the get command
@@ -101,6 +99,49 @@ func (db *KeyValueDb) Get(key string) (response []byte, err error) {
 	return buf, nil
 }
 
+func (db *KeyValueDb) Set(key string, value string) (response []byte, err error) {
+
+	// error check
+	if db.conn == nil {
+		const maxRetries = 3
+		for i := 0; i < maxRetries; i++ {
+			if err := db.Reconnect(); err == nil {
+				break
+			}
+			if i == maxRetries-1 {
+				return nil, fmt.Errorf("no active connection")
+			}
+		}
+	}
+
+	// construct the set command
+	req := serialize_request(fmt.Sprintf("set %s %s", key, value))
+
+	// Send the request to the server
+	_, err = db.conn.Write(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+
+	// read the response from the server
+	buf, err := db.ParseResponse()
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return buf, nil
+}
+
+func (db *KeyValueDb) Reconnect() error {
+
+	var err error = nil
+
+	db.conn, err = net.Dial("tcp", db.host)
+
+	// done
+	return err
+}
+
 func (db *KeyValueDb) Close() error {
 
 	// error check
@@ -119,4 +160,14 @@ func (db *KeyValueDb) Close() error {
 
 	// close the connection
 	return nil
+}
+
+func serialize_request(command string) []byte {
+	req_len := int64(len(command))
+	req_len_buf := make([]byte, 8)
+	for i := 0; i < 8; i++ {
+		req_len_buf[i] = byte(req_len & 0xFF)
+		req_len >>= 8
+	}
+	return append(req_len_buf, []byte(command)...)
 }
