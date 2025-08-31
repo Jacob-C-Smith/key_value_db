@@ -216,7 +216,7 @@ int key_value_db_construct ( key_value_db **pp_key_value_db )
         thread_pool_construct(&p_key_value_db->network.p_thread_pool, 4);
 
         // construct a socket
-        socket_tcp_create(&p_key_value_db->network._socket, socket_address_family_ipv4, 6708);
+        socket_tcp_create(&p_key_value_db->network._socket, socket_address_family_ipv4, 6713);
 
         // set the running flag
         p_key_value_db->running = true;

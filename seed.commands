@@ -1,0 +1,4 @@
+set key "value"
+set pi 3.14
+set seven 7
+exit

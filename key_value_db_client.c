@@ -46,7 +46,7 @@ void print_usage ( const char *argv0 );
 void parse_command_line_arguments ( int argc, const char *argv[] );
 
 // data
-unsigned short  port       = 6708;
+unsigned short  port       = 6713;
 const char     *p_hostname = "localhost";
 
 // entry point
@@ -77,6 +77,9 @@ int main ( int argc, const char *argv[] )
         size_t len = 0;
         size_t input_len = 0;
 
+        memset(_stdin_buffer, 0, sizeof(_stdin_buffer));
+        memset(_res_buffer, 0, sizeof(_res_buffer));
+
         // read a line from stdin
         fgets(_stdin_buffer, sizeof(_stdin_buffer), stdin);
 
@@ -103,7 +106,7 @@ int main ( int argc, const char *argv[] )
         connection_read(p_connection, _res_buffer, &size);
 
         // logs
-        log_info("Received: %s\n", _res_buffer);
+        log_info("%s\n", _res_buffer);
 
         // done?
         if ( 0 == strcmp(_stdin_buffer, "exit") ) break;

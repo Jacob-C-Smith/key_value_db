@@ -33,7 +33,7 @@ int main ( int argc, const char *argv[] )
     key_value_db_construct(&p_key_value_db);
 
     // keep network up
-    getchar();
+    sleep(300);
 
     // success
     return EXIT_SUCCESS;

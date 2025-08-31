@@ -94,17 +94,20 @@ func main() {
 	// initialized data
 	var err error = nil
 
+	// log
+	fmt.Printf("Connecting to key value database on port 6713\n")
+
 	// construct a database connection
-	database, err = db.NewKeyValueDb("localhost:6708")
+	database, err = db.NewKeyValueDb("localhost:6713")
 	ok(err)
 
 	// log
-	fmt.Printf("Listening on :8080\n")
+	fmt.Printf("Listening for http requests on :3013\n")
 
 	// start the server
 	http.HandleFunc("/get", database_get)
 	http.HandleFunc("/set", database_set)
-	http.ListenAndServe(":8080", nil)
+	http.ListenAndServe(":3013", nil)
 
 	// close the connection
 	database.Close()
