@@ -28,6 +28,9 @@
 /// performance
 #include <performance/thread_pool.h>
 
+// preprocessor definitions
+#define KEY_VALUE_DB_IDLE_SHUTDOWN 30
+
 // structure declarations
 struct key_value_db_s;
 struct key_value_property_s;

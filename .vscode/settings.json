@@ -2,6 +2,8 @@
     "files.associations": {
         "key_value.h": "c",
         "log.h": "c",
-        "stdbool.h": "c"
+        "stdbool.h": "c",
+        "__locale": "c",
+        "print": "c"
     }
 }

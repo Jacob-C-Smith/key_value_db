@@ -76,6 +76,7 @@ int main ( int argc, const char *argv[] )
         // initialized data
         size_t len = 0;
         size_t input_len = 0;
+        json_value *p_value = NULL;
 
         memset(_stdin_buffer, 0, sizeof(_stdin_buffer));
         memset(_res_buffer, 0, sizeof(_res_buffer));
@@ -85,12 +86,16 @@ int main ( int argc, const char *argv[] )
 
         // done?
         if ( feof(stdin) ) break;
-
+        
         // compute the input length
         input_len = strlen(_stdin_buffer) - 1;
 
+        if ( -1 == input_len ) continue;
+
         // store a null terminator at the end of the input
         _stdin_buffer[input_len] = '\0';
+
+        if ( 0 == strcmp(_stdin_buffer, "exit") ) break;
 
         // prepend the length of the message
         *(size_t *)_net_buffer = input_len;
@@ -105,11 +110,31 @@ int main ( int argc, const char *argv[] )
         // receive
         connection_read(p_connection, _res_buffer, &size);
 
-        // logs
-        log_info("%s\n", _res_buffer);
+        // parse the response
+        if ( 0 == json_value_parse(_res_buffer, 0, &p_value) ) goto failed_to_parse_json;
 
-        // done?
-        if ( 0 == strcmp(_stdin_buffer, "exit") ) break;
+        // error check
+        if ( NULL              ==       p_value ) goto failed_to_parse_json;
+        if ( JSON_VALUE_OBJECT != p_value->type ) goto failed_to_parse_json;
+
+        // format the output
+        {
+
+            // initialized data
+            dict       *p_dict = p_value->object;
+            json_value *p_okay = dict_get(p_dict, "okay");
+
+            // error check
+            if ( JSON_VALUE_BOOLEAN != p_okay->type ) goto failed_to_parse_json;
+
+            // okay
+            if ( p_okay->boolean )
+                log_info("%s\n", _res_buffer);
+            // error
+            else
+                log_error("%s\n", _res_buffer);
+
+        }
     }
 
     // success
@@ -120,6 +145,14 @@ int main ( int argc, const char *argv[] )
         no_connection:
             #ifndef NDEBUG
                 log_error("Error: Failed to connect to %s:%hu\n", p_hostname, port);
+            #endif
+
+            // error
+            return EXIT_FAILURE;
+
+        failed_to_parse_json:
+            #ifndef NDEBUG
+                log_error("Error: Failed to parse response\n", p_hostname, port);
             #endif
 
             // error

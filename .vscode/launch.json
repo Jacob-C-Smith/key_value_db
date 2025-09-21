@@ -5,18 +5,19 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "key value database",
+            "name": "key value db > server",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/key_value_db_server",
-            "args": [
+            "args": 
+            [
                 "-f", "fit.db",
                 "-p", "6713"
             ],
             "stopAtEntry": false,
-            "cwd": "${fileDirname}",
+            "cwd": "${workspaceFolder}",
             "environment": [],
-            "externalConsole": false,
+            "externalConsole": true,
             "MIMode": "lldb",
             "setupCommands": [
                 {
@@ -30,7 +31,39 @@
                     "ignoreFailures": true
                 }
             ]
+        },
+        {
+            "name": "key value db > client",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/key_value_db_client",
+            "args": 
+            [
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": true,
+            "MIMode": "lldb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for lldb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-lldb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
+            "name": "key value db > http server",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/example"
         }
-
     ]
 }

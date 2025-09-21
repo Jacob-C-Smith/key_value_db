@@ -23,6 +23,18 @@ struct key_value_db_s
         socket_tcp       _socket;
         parallel_thread *p_listener_thread;
     } network;
+
+    struct
+    {
+        struct
+        {
+            size_t get,
+                   set,
+                   err;
+        } request;
+    } counter;
+
+    parallel_thread *p_shutdown;
 };
 
 struct key_value_property_s
@@ -38,6 +50,17 @@ int key_value_db_process
     char *p_request, size_t request_len,
     char *p_response, size_t *p_response_len
 );
+
+void *key_value_db_shutdown ( void *p_kvdb )
+{
+    
+    // initialized data
+    key_value_db *p_key_value_db = p_kvdb;
+
+
+    // success
+    return (void *)1;
+}
 
 void *key_value_property_key_accessor ( key_value_property *p_property )
 {
@@ -218,9 +241,6 @@ int key_value_db_construct ( key_value_db **pp_key_value_db )
         // construct a socket
         socket_tcp_create(&p_key_value_db->network._socket, socket_address_family_ipv4, 6713);
 
-        // set the running flag
-        p_key_value_db->running = true;
-
         // construct a listener thread
         parallel_thread_start(&p_key_value_db->network.p_listener_thread, (fn_parallel_task *)key_value_db_listener, p_key_value_db);
     }
@@ -245,17 +265,13 @@ int key_value_db_construct ( key_value_db **pp_key_value_db )
             (fn_key_accessor *) key_value_property_key_accessor,
             512
         );
-
-        {
-            key_value_property *p_property = default_allocator(0, sizeof(key_value_property));
-            if ( NULL == p_property ) goto no_mem;
-
-            strcpy(p_property->_name, "fit");
-            p_property->p_value = NULL;
-
-            binary_tree_insert(p_key_value_db->p_binary_tree, p_property);
-        }
     }
+
+    // TODO: construct a shutdown thread
+    // parallel_thread_start(&p_key_value_db->p_shutdown, key_value_db_shutdown, p_key_value_db);
+
+    // set the running flag
+    p_key_value_db->running = true;
 
     // return a pointer to the caller
     *pp_key_value_db = p_key_value_db;
@@ -312,6 +328,132 @@ int key_value_db_construct ( key_value_db **pp_key_value_db )
     }
 }
 
+int key_value_db_process_info
+( 
+    key_value_db *p_key_value_db, 
+    
+    char *p_response, size_t *p_response_len
+)
+{
+
+    // argument check
+    if ( NULL == p_key_value_db ) goto no_key_value_db;
+    if ( NULL ==     p_response ) goto no_response;
+    if ( NULL == p_response_len ) goto no_response_len;
+
+    // initialized data
+    key_value_property *p_value = NULL;
+
+    // logs
+    log_info("[key value db] [info]\n");
+
+    // serialize the response
+    *p_response_len = 1 + sprintf(p_response,  
+        "{\"okay\":true,\"value\":{\"get\":%d,\"set\":%d,\"err\":%d}}",
+
+        p_key_value_db->counter.request.get,
+        p_key_value_db->counter.request.set,
+        p_key_value_db->counter.request.err
+    );
+
+    // success
+    return 1;
+
+    // error handling
+    {
+
+        // argument errors
+        {
+            no_key_value_db:
+                #ifndef NDEBUG
+                    log_error("[key value db] Null pointer provided for parameter \"p_key_value_db\" in call to function \"%s\"", __FUNCTION__);
+                #endif
+
+                // error
+                return 0;
+
+            no_response:
+               #ifndef NDEBUG
+                    log_error("[key value db] Null pointer provided for parameter \"p_response\" in call to function \"%s\"", __FUNCTION__);
+                #endif
+
+                // error
+                return 0;
+
+            no_response_len:
+               #ifndef NDEBUG
+                    log_error("[key value db] Null pointer provided for parameter \"p_response_len\" in call to function \"%s\"", __FUNCTION__);
+                #endif
+
+                // error
+                return 0;
+        }
+    }
+}
+
+int key_value_db_process_write
+( 
+    key_value_db *p_key_value_db, 
+    
+    char *p_response, size_t *p_response_len
+)
+{
+
+    // argument check
+    if ( NULL == p_key_value_db ) goto no_key_value_db;
+    if ( NULL ==     p_response ) goto no_response;
+    if ( NULL == p_response_len ) goto no_response_len;
+
+    // initialized data
+    key_value_property *p_value = NULL;
+
+    // logs
+    log_info("[key value db] [write]\n");
+
+    // serialize the response
+    // *p_response_len = 1 + sprintf(p_response,  
+    //     "{\"okay\":true,\"value\":{\"get\":%d,\"set\":%d,\"err\":%d}}",
+
+    //     p_key_value_db->counter.request.get,
+    //     p_key_value_db->counter.request.set,
+    //     p_key_value_db->counter.request.err
+    // );
+
+    // success
+    return 1;
+
+    // error handling
+    {
+
+        // argument errors
+        {
+            no_key_value_db:
+                #ifndef NDEBUG
+                    log_error("[key value db] Null pointer provided for parameter \"p_key_value_db\" in call to function \"%s\"", __FUNCTION__);
+                #endif
+
+                // error
+                return 0;
+
+            no_response:
+               #ifndef NDEBUG
+                    log_error("[key value db] Null pointer provided for parameter \"p_response\" in call to function \"%s\"", __FUNCTION__);
+                #endif
+
+                // error
+                return 0;
+
+            no_response_len:
+               #ifndef NDEBUG
+                    log_error("[key value db] Null pointer provided for parameter \"p_response_len\" in call to function \"%s\"", __FUNCTION__);
+                #endif
+
+                // error
+                return 0;
+        }
+    }
+}
+
 int key_value_db_process_get
 ( 
     key_value_db *p_key_value_db, 
@@ -331,7 +473,7 @@ int key_value_db_process_get
     key_value_property *p_value = NULL;
 
     // logs
-    log_info("[key value db] get(\"%s\")\n", p_key);
+    log_info("[key value db] [get] \"%s\"\n", p_key);
 
     // search the cache
     if ( 0 == cache_find(p_key_value_db->p_cache, p_key, (void **)&p_value) ) goto not_in_cache;
@@ -342,8 +484,8 @@ int key_value_db_process_get
     found:
 
     // serialize the response
-    memcpy(p_response, "{\"okay\":\"true\",\"value\":", 23);
-    *p_response_len = 23 + json_value_serialize(p_value->p_value, p_response + 23);
+    memcpy(p_response, "{\"okay\":true,\"value\":", 21);
+    *p_response_len = 21 + json_value_serialize(p_value->p_value, p_response + 21);
     memcpy(p_response + *p_response_len, "}", 1);
     (*p_response_len)++;
 
@@ -416,8 +558,8 @@ int key_value_db_process_get
                 #endif
 
                 // copy the error message to the response buffer
-                memcpy(p_response, "{\"okay\":\"false\"}", 16);
-                *p_response_len = 16;
+                memcpy(p_response, "{\"okay\":false}", 14);
+                *p_response_len = 14;
 
                 // error
                 return 0;
@@ -445,8 +587,11 @@ int key_value_db_process_set
     // initialized data
     key_value_property *p_property = NULL;
 
+    // logs
+    log_info("[key value db] [set] \"%s\"\n", p_key);
+
     if ( binary_tree_search(p_key_value_db->p_binary_tree, p_key, (void **)&p_property) ) 
-        binary_tree_remove(p_key_value_db->p_binary_tree, p_property, NULL);
+        binary_tree_remove(p_key_value_db->p_binary_tree, p_property, (void **)&p_property);
 
     p_property = default_allocator(0, sizeof(key_value_property));
     if (NULL == p_property) goto no_mem;
@@ -468,8 +613,8 @@ int key_value_db_process_set
     cache_remove(p_key_value_db->p_cache, p_property->_name, NULL);
 
     // serialize the response
-    memcpy(p_response, "{\"okay\":\"true\",\"value\":", 23);
-    *p_response_len = 23 + json_value_serialize(p_property->p_value, p_response + 23);
+    memcpy(p_response, "{\"okay\":true,\"value\":", 21);
+    *p_response_len = 21 + json_value_serialize(p_property->p_value, p_response + 21);
     memcpy(p_response + *p_response_len, "}", 1);
     (*p_response_len)++;
 
@@ -530,8 +675,8 @@ int key_value_db_process_set
                 #endif
 
                 // copy the error message to the response buffer
-                memcpy(p_response, "{\"okay\":\"false\"}", 16);
-                *p_response_len = 16;
+                memcpy(p_response, "{\"okay\":false}", 14);
+                *p_response_len = 14;
 
                 // error
                 return 0;
@@ -613,7 +758,7 @@ int key_value_db_process
         cur++;
 
         // print the command
-        // log_info("[key value db] Command: \"%s\"\n", command);
+        log_info("[key value db] Command: \"%s\"\n", command);
     }
 
     // process get
@@ -667,6 +812,9 @@ int key_value_db_process
 
         // process the get command
         key_value_db_process_get(p_key_value_db, op1, p_response, p_response_len);
+
+        // increment counters
+        p_key_value_db->counter.request.get++;
     }
     
     // process set
@@ -737,7 +885,7 @@ int key_value_db_process
             // skip the operand itself
             while
             (
-                !isblank(p_request[cur]) &&
+                (p_request[cur] != '\0') &&
                 p_request[cur] != '\0' &&
                 cur < request_len
             ) cur++;
@@ -759,10 +907,40 @@ int key_value_db_process
         // error check
         if ( NULL == op1 ) goto failed_to_parse_set_key;
 
-        // process the get command
+        // process the set command
         key_value_db_process_set(p_key_value_db, op1, p_value, p_response, p_response_len);
+
+        // increment counters
+        p_key_value_db->counter.request.set++;
     }
     
+    // process info
+    else if ( 0 == strcmp(command, "info") )
+    {
+
+        // process the info command
+        key_value_db_process_info(p_key_value_db, p_response, p_response_len);
+    }
+
+    // process write
+    else if ( 0 == strcmp(command, "write") )
+    {
+
+        // process the write command
+        key_value_db_process_write(p_key_value_db, p_response, p_response_len);
+    }
+
+    // error
+    else 
+    {
+
+        // copy the error message to the response buffer
+        memcpy(p_response, "{\"okay\":false}", 14);
+        *p_response_len = 14;
+
+        // increment counters
+        p_key_value_db->counter.request.err++;
+    }
 
     // success
     return 1;

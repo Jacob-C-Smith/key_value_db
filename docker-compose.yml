@@ -1,0 +1,16 @@
+name: 'key_value_db'
+services:
+  key-value-db-http:
+    build:
+      dockerfile: docker/key-value-db-http/Dockerfile
+    ports:
+      - "3013:3013"
+    environment:
+      ADDR: '172.19.0.2:6713'
+    depends_on:
+      - key-value-db
+  key-value-db:
+    build:
+      dockerfile: docker/key-value-db/Dockerfile
+    ports:
+      - "6713:6713"

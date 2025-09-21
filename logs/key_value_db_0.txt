@@ -1,3 +1,4 @@
+ [docker] Starting key value db node on 172.17.0.2
  [94mConnecting to db server at localhost:6713
  [0m[94m{"okay":"true","value":"value"}
  [0m[94m{"okay":"true","value":3.14}
@@ -5,10 +6,3 @@
  [0m[94m
  [0mConnecting to key value database on port 6713
  Listening for http requests on :3013
- getting key "key"
- getting key "key"
- getting key "key"
- getting key "key"
- getting key "pi"
- getting key "7"
- getting key "seven"

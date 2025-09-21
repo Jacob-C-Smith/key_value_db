@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"key_value_db/db"
 	"net/http"
+	"os"
 )
 
 // data
@@ -46,8 +47,11 @@ func database_get(w http.ResponseWriter, r *http.Request) {
 	value, err = database.Get(key)
 	ok(err)
 
+	// content is json
+	w.Header().Set("Content-Type", "application/json")
+
 	// print the value
-	fmt.Fprintf(w, "get(\"%s\") -> %s\n", key, value)
+	fmt.Fprintf(w, "%s", value)
 }
 
 func database_set(w http.ResponseWriter, r *http.Request) {
@@ -57,6 +61,7 @@ func database_set(w http.ResponseWriter, r *http.Request) {
 	var key string = ""
 	var value string = ""
 	var found bool = false
+	var err error = nil
 
 	// error check
 	if r.Method != "POST" {
@@ -75,30 +80,34 @@ func database_set(w http.ResponseWriter, r *http.Request) {
 	// get the value
 	// read the value from the body
 	valueBytes := make([]byte, r.ContentLength)
-	_, err := r.Body.Read(valueBytes)
-	ok(err)
+	r.Body.Read(valueBytes)
+
 	value = string(valueBytes)
 
 	fmt.Printf("setting key \"%s\" to value \"%s\"\n", key, value)
 
 	// TODO
-	// err = database.Set(key, []byte(value))
-	// ok(err)
+	resp, err := database.Set(key, string(value))
+	ok(err)
+
+	// content is json
+	w.Header().Set("Content-Type", "application/json")
 
 	// print the value
-	fmt.Fprintf(w, "set(\"%s\", \"%s\")\n", key, value)
+	fmt.Fprintf(w, "%s", resp)
 }
 
 func main() {
 
 	// initialized data
+	var addr string = os.Getenv("ADDR")
 	var err error = nil
 
 	// log
-	fmt.Printf("Connecting to key value database on port 6713\n")
+	fmt.Printf("Connecting to key value database on %s\n", addr)
 
 	// construct a database connection
-	database, err = db.NewKeyValueDb("localhost:6713")
+	database, err = db.NewKeyValueDb(addr)
 	ok(err)
 
 	// log
